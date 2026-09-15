@@ -10,9 +10,15 @@ def make_A(temp):
     e = np.exp(s - s.max())
     return e / e.sum()
 
-def entropy_eff(p):
-    """Perplexity of the attention distribution = effective # of attended keys."""
-    return float(np.exp(-(p * np.log(p + 1e-300)).sum()))
+def n_eff(p):
+    """Effective # of attended keys = 1 / sum_j p_j^2 (inverse participation ratio).
+
+    This is the quantity the sqrt(n_eff / S) error law is stated in terms of, and
+    the one that actually predicts the estimator's relative error. Shannon
+    perplexity exp(-sum p log p) is a different functional -- it runs 2-3x larger
+    on these distributions and overpredicts the required budget by that factor.
+    """
+    return float(1.0 / (p ** 2).sum())
 
 def stats(p, S, trials=200):
     mu = p @ V
@@ -30,4 +36,4 @@ for name, temp in [("peaked", 6.0), ("moderate", 3.0), ("diffuse", 1.0)]:
     for S in (16, 64, 256, 1024):
         tr, nmu, e = stats(p, S)
         row.append(e)
-    print(f"{name:<12} {entropy_eff(p):>9.1f} {nmu:>8.2f} {tr:>10.1f}   " + "".join(f"{e:>9.3f}" for e in row))
+    print(f"{name:<12} {n_eff(p):>9.1f} {nmu:>8.2f} {tr:>10.1f}   " + "".join(f"{e:>9.3f}" for e in row))

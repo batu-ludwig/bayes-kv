@@ -82,9 +82,28 @@ effective number of attended keys. From `01_variance_vs_n_eff.py`:
 
 | regime | n_eff | \|\|mu\|\| | rel. L2 err @ S=16 | @ S=1024 |
 |---|---|---|---|---|
-| peaked | 5.3 | 7.40 | 0.283 | 0.036 |
-| moderate | 309.8 | 1.04 | 2.673 | 0.332 |
-| diffuse | 4842.2 | 0.23 | 12.441 | 1.551 |
+| peaked | 2.4 | 7.40 | 0.283 | 0.036 |
+| moderate | 91.4 | 1.04 | 2.673 | 0.332 |
+| diffuse | 2680.8 | 0.23 | 12.441 | 1.551 |
+
+> **Corrected 2026-09-15.** The `n_eff` column previously read 5.3 / 309.8 / 4842.2.
+> Those were Shannon perplexity `exp(-sum p log p)`, not the `1 / sum_j p_j^2` the
+> text states — `01_variance_vs_n_eff.py` had a helper whose name and docstring said
+> "effective # of attended keys" while computing the other functional. The prose was
+> right; the code was wrong. The error columns are unaffected.
+>
+> The distinction is not cosmetic, because `sqrt(n_eff / S)` is only predictive under
+> the stated definition:
+>
+> | regime | S | observed | `sqrt(n_IPR/S)` | `sqrt(n_Shannon/S)` |
+> |---|---|---|---|---|
+> | peaked | 16 | 0.283 | 0.387 | 0.574 |
+> | moderate | 16 | 2.673 | 2.390 | 4.401 |
+> | diffuse | 16 | 12.441 | 12.944 | 17.397 |
+>
+> Shannon perplexity overpredicts required `S` by ~2-4x. Anything built on the old
+> numbers — in particular the per-layer profiling in "Profiling to run first" — would
+> have over-provisioned the budget by that factor.
 
 Note what drives the blow-up: `tr(Sigma)` is roughly constant across regimes
 (78 → 123 → 128). The error explodes because **`||mu||` collapses**, not because
@@ -205,9 +224,29 @@ everything, so you read the whole cache anyway. SANTA is a decode-only technique
    budgets zero — needs tile compaction, which the paper does not implement.
 3. **Non-determinism.** Breaks speculative decoding (draft/target distributions
    must match) and reproducible serving. No treatment in the paper.
-4. **Gumbel-top-k as a barrier-free alternative.** See the survey's §6.3 — an
-   exact without-replacement sample using a top-k kernel, with a Horvitz-Thompson
-   correction for unbiasedness. No published instance for KV caches.
+4. **Gumbel-top-k as a barrier-free alternative — narrowed, see below.** An exact
+   without-replacement sample using a top-k kernel, with a Horvitz-Thompson
+   correction for unbiasedness. The claim that there is "no published instance for
+   KV caches" was **wrong** and has been retracted from the survey (§6, obs. 3);
+   three papers occupy the space:
+   - [Nexus Sampling, 2606.23961](https://arxiv.org/abs/2606.23961) — priority keys
+     `pi_j = u_j^(1/w_j)`, proved equivalent to the exponential-race form of
+     Gumbel-top-k, with Prop. 4.3 giving exactly the HT unbiasedness result and a
+     concentration bound. Training-free; 80% eviction within 1% of dense on LongBench.
+   - [Neural Garbage Collection, 2604.18002](https://arxiv.org/abs/2604.18002) —
+     Gumbel-top-k for RL-learned eviction, citing Kool et al. by name; the WOR
+     log-probability feeds policy gradients, and eval reverts to deterministic top-k.
+   - [Keyformer, 2403.09054](https://arxiv.org/abs/2403.09054) (MLSys 2024) —
+     Gumbel-perturbed top-k KV selection since 2024, but as a Gumbel-Softmax
+     regularizer: no exact-WOR claim, no HT correction.
+
+   **What survives, and it is still worth doing:** none of the three applies an
+   inclusion-probability-corrected estimator to the *attention output itself*. Nexus
+   and NGC both use the machinery for **which tokens to keep**; the open move is
+   replacing SANTA's with-replacement categorical draw with an exact WOR draw
+   carrying HT weights, i.e. estimating `AV` rather than choosing an eviction set.
+   That also interacts with open question 3 above — a WOR draw has lower variance
+   than the with-replacement one at equal S, which changes the non-determinism budget.
 
 ## Profiling to run first (one forward pass gets the first three)
 

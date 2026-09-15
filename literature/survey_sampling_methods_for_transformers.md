@@ -208,10 +208,13 @@ NeurIPS 2021 — *"sparse and low-rank approximations excel in different regimes
 softmax temperature in attention"*), MagicPIG (2024 — *"attention is not always as sparse as
 expected"*), and vAttention (2025, as its founding insight).
 
-> **Open citation.** Earlier drafts equated this quantity with "the `n_eff` scaling law." No such
-> result is cited anywhere in this document and none was located in the literature. Either supply the
-> reference or mark `n_eff` explicitly as this project's own construct — it is currently an appeal to
-> a result the survey does not establish.
+> **On `n_eff`.** Earlier drafts appealed to "the `n_eff` scaling law" as though it were established
+> literature. It is not — no such result was found, and none is cited here. It is **this project's own
+> construct**, defined and measured in `HANDOFF.md` and `experiments/01_variance_vs_n_eff.py`:
+> `n_eff = 1 / Σ_j p_j²`, the inverse participation ratio of the attention distribution, with relative
+> estimator error scaling as `√(n_eff / S)`. Stated that way the connection to the sparsity fault line
+> is real — required sample budget tracks the effective number of attended keys rather than `n_k` — but
+> it is our result, not a citable one, and should be presented as such.
 
 **2. Sample-and-accumulate is nearly unexploited — but no one has actually shipped it.** Of everything
 surveyed, only **SANTA** eliminates multiplies from the value stage, and only **HashAttention** makes

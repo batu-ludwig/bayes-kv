@@ -306,10 +306,29 @@ Marked inline in the survey. Each is defensible reasoning; none is what the cite
 
 ## 9. Unresolved
 
-**`n_eff`.** Survey §6.1 equates the sparsity fault line with "the `n_eff` scaling law." No citation
-exists in the document; no matching result was found in the literature; neither branch of this
-repository defines it. Either supply the reference or mark it explicitly as this project's own
-construct. As written it appeals to a result the survey does not establish.
+**`n_eff` — RESOLVED, and a bug found in passing.** Survey §6.1 appealed to "the `n_eff` scaling
+law" with no citation. It is not literature: it is this project's own construct, defined in
+`HANDOFF.md` as `n_eff = 1 / Σ_j p_j²` with error scaling `√(n_eff / S)`. The survey now says so.
+
+While confirming this, `experiments/01_variance_vs_n_eff.py` turned out to contradict its own
+documentation: a helper named `entropy_eff`, docstringed *"effective # of attended keys"*, computed
+Shannon perplexity `exp(−Σ p log p)` instead of the inverse participation ratio the prose specifies.
+The HANDOFF table therefore reported 5.3 / 309.8 / 4842.2 where the stated definition gives
+2.4 / 91.4 / 2680.8.
+
+The prose was right and the code was wrong — confirmed by checking which functional actually predicts
+the measured error:
+
+| regime | S | observed | `√(n_IPR/S)` | `√(n_Shannon/S)` |
+|---|---|---|---|---|
+| peaked | 16 | 0.283 | 0.387 | 0.574 |
+| moderate | 16 | 2.673 | 2.390 | 4.401 |
+| diffuse | 16 | 12.441 | 12.944 | 17.397 |
+
+IPR tracks; Shannon overshoots by 1.4–2× consistently. Fixed in both the script and the HANDOFF
+table. Consequence worth noting: the per-layer `n_eff` profile listed under "Profiling to run first"
+is described as telling you `S` directly — run with the old helper it would have over-provisioned the
+budget by 2–4×.
 
 **§5 "The Gap" has not been adversarially searched.** The central claim — that no published method
 stochastically samples weights at inference to form an unbiased estimator of a weight matvec — was
